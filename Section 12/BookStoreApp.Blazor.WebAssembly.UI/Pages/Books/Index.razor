@@ -1,0 +1,68 @@
+﻿@page "/books/"
+@inject IBookService bookService
+@inject IJSRuntime js
+<h3>Books</h3>
+
+
+@if(response.Success == false)
+{
+    <div class="alert alert-danger">
+        <h4>@response.Message</h4>
+    </div>
+}
+else
+{
+    @if(Books == null)
+    {
+        <div class="alert alert-info">
+            <h4>Loading Data...</h4>
+        </div>
+    }
+    else
+    {
+        <AuthorizeView Roles="Administrator">
+            <a class="btn btn-dark" href="/books/create"><span class="oi oi-plus" aria-hidden="true"></span> Create </a>
+        </AuthorizeView>
+        <br/>
+
+        <BookTable Books="Books" TotalSize="TotalSize" OnScroll="LoadBooks" OnDelete="Delete"/>
+
+    }
+}
+
+
+@code {
+    private List<BookReadOnlyDto> Books;
+    public int TotalSize { get; set; }
+    private Response<BookReadOnlyDtoVirtualizeResponse> response = new Response<BookReadOnlyDtoVirtualizeResponse> { Success = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        response = await bookService.Get(new QueryParameters { StartIndex = 0 });
+        if (response.Success)
+        {
+            Books = response.Data.Items.ToList();
+        }
+    }
+
+    private async Task LoadBooks(QueryParameters queryParams)
+    {
+        var virtualizeResult = await bookService.Get(queryParams);
+        Books = virtualizeResult.Data.Items.ToList();
+        TotalSize = virtualizeResult.Data.TotalSize;
+    }
+
+    private async Task Delete(int bookId)
+    {
+        var book = Books.First(q => q.Id == bookId);
+        var confirm = await js.InvokeAsync<bool>("confirm", $"Are You Sure You Want To Delete {book.Title}?");
+        if (confirm)
+        {
+            var response = await bookService.Delete(bookId);
+            if (response.Success)
+            {
+                await OnInitializedAsync();
+            }
+        }
+    }
+}

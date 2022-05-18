@@ -1,0 +1,63 @@
+﻿@page "/authors/"
+@inject IAuthorService authorService
+@inject IJSRuntime js
+<h3>Authors</h3>
+
+
+@if(response.Success == false)
+{
+    <div class="alert alert-danger">
+        <h4>@response.Message</h4>
+    </div>
+}
+else
+{
+    @if(Authors == null)
+    {
+        <div class="alert alert-info">
+            <h4>Loading Data...</h4>
+        </div>
+    }
+    else
+    {
+        <AuthorizeView Roles="Administrator">
+            <a class="btn btn-dark" href="/authors/create"><span class="oi oi-plus" aria-hidden="true"></span> Create </a>
+        </AuthorizeView>
+        <br/>
+        <AuthorTable Authors="Authors" TotalSize="TotalSize" OnScroll="LoadAuthors"  OnDeleted="Delete"/>
+    }
+}
+
+
+@code {
+    public List<AuthorReadOnlyDto> Authors;
+    public int TotalSize { get; set; }
+    private Response<AuthorReadOnlyDtoVirtualizeResponse> response = new Response<AuthorReadOnlyDtoVirtualizeResponse> { Success = true };
+    protected Virtualize<AuthorTable> ChildComponent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        response = await authorService.Get(new QueryParameters { StartIndex = 0 });
+        if (response.Success)
+        {
+            Authors = response.Data.Items.ToList();
+        }
+    }
+
+    private async Task LoadAuthors(QueryParameters queryParams)
+    {
+        var virtualizeResult = await authorService.Get(queryParams);
+        Authors = virtualizeResult.Data.Items.ToList();
+        TotalSize = virtualizeResult.Data.TotalSize;
+    }
+
+    private async Task Delete(int authorId)
+    {
+        var response = await authorService.Delete(authorId);
+        if (response.Success)
+        {
+            await ChildComponent?.RefreshDataAsync();
+            StateHasChanged();
+        }
+    }
+}
